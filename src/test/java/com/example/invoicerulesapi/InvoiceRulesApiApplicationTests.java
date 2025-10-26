@@ -1,9 +1,7 @@
-package com.example.invoice_rules_api;
+package com.example.invoicerulesapi;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-
-import com.example.invoicerulesapi.InvoiceRulesApiApplication;
 
 @SpringBootTest(classes = InvoiceRulesApiApplication.class)
 class InvoiceRulesApiApplicationTests {

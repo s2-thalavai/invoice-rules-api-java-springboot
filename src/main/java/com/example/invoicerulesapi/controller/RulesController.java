@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import java.nio.file.Paths;
 
 @RestController
-@RequestMapping("/rules")
+@RequestMapping("/api/rules")
 public class RulesController {
     private final ExpressionRuleEngine engine;
 
