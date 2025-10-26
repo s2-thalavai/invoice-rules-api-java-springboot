@@ -1,0 +1,118 @@
+# ================================
+# Spring Boot Invoice Rules API
+# Kubernetes Deployment (v1)
+# ================================
+# Runs a production-grade, auto-scaling REST API
+# with live rule configuration and health probes
+# ================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: invoice-rules-api             # Name of the Deployment resource
+  labels:
+    app: invoice-rules-api            # Label used for service selection
+
+spec:
+  replicas: 2                         # Run 2 instances for HA & load balancing
+  revisionHistoryLimit: 3             # Keep last 3 rollout revisions for rollback
+
+  selector:
+    matchLabels:
+      app: invoice-rules-api          # Pods with this label belong to this Deployment
+
+  template:
+    metadata:
+      labels:
+        app: invoice-rules-api        # Same label must appear on the Pod template
+
+    spec:
+      containers:
+        - name: invoice-rules-api
+          image: your-dockerhub-username/invoice-rules-api:latest   # Container image (replace with your registry)
+          imagePullPolicy: IfNotPresent                             # Avoid re-pulling image if cached
+          ports:
+            - containerPort: 8080                                   # Internal app port (Spring Boot default)
+
+          # ---------------------------------------------------------
+          # ENVIRONMENT CONFIGURATION
+          # ---------------------------------------------------------
+          # Pulls runtime variables (Spring profiles, Java opts, etc.)
+          #     from ConfigMap: invoice-api-config
+          # Loads sensitive data (DB credentials, tokens) from Secret
+          # ---------------------------------------------------------
+          envFrom:
+            - configMapRef:
+                name: invoice-api-config
+            - secretRef:
+                name: invoice-api-secrets
+
+          # ---------------------------------------------------------
+          # CONFIGURATION FILE MOUNT
+          # ---------------------------------------------------------
+          # Mount only rules.json (from ConfigMap) into container
+          # at /app/config/rules.json — where the app expects it.
+          # The app will auto-reload rules on file change.
+          # ---------------------------------------------------------
+          volumeMounts:
+            - name: rules-config-volume
+              mountPath: /app/config/rules.json
+              subPath: rules.json
+
+          # ---------------------------------------------------------
+          # HEALTH CHECK PROBES
+          # ---------------------------------------------------------
+          # Uses Spring Boot Actuator health endpoints.
+          # Kubernetes restarts pod if liveness fails or
+          # stops routing traffic until readiness succeeds.
+          # ---------------------------------------------------------
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+            initialDelaySeconds: 30    # Wait 30s before first check (app startup time)
+            periodSeconds: 15          # Check every 15 seconds
+            timeoutSeconds: 5          # Wait 5 seconds for response
+            failureThreshold: 3        # Restart after 3 consecutive failures
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+            initialDelaySeconds: 15    # Start checking readiness sooner
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          # ---------------------------------------------------------
+          # RESOURCE MANAGEMENT
+          # ---------------------------------------------------------
+          # Ensures fair scheduling and prevents resource starvation.
+          # Adjust based on your cluster capacity and traffic volume.
+          # ---------------------------------------------------------
+          resources:
+            requests:                  # Minimum guaranteed resources
+              cpu: 250m
+              memory: 512Mi
+            limits:                    # Maximum allowed resources
+              cpu: 500m
+              memory: 1Gi
+
+      # -------------------------------------------------------------
+      # CONFIGMAP VOLUME MOUNT
+      # -------------------------------------------------------------
+      # Mounts the invoice-api-config ConfigMap (which contains rules.json)
+      # into the pod as a filesystem volume.
+      # -------------------------------------------------------------
+      volumes:
+        - name: rules-config-volume
+          configMap:
+            name: invoice-api-config
+
+      # -------------------------------------------------------------
+      # POD RESTART POLICY
+      # -------------------------------------------------------------
+      # Always restart the container if it exits or crashes.
+      # Typical for long-running web apps.
+      # -------------------------------------------------------------
+      restartPolicy: Always

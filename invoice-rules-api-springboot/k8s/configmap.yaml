@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: invoice-api-config
+  labels:
+    app: invoice-rules-api
+data:
+  SPRING_PROFILES_ACTIVE: "prod"
+  JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+  SERVER_PORT: "8080"
+  MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: "health,info,metrics"
+  MANAGEMENT_HEALTH_PROBES_ENABLED: "true"
+  rules.json: |
+    {
+      "discountRules": [
+        { "condition": "subtotal <= 1000", "rate": 0.05 },
+        { "condition": "subtotal > 1000", "rate": 0.07 }
+      ],
+      "taxRules": [
+        { "condition": "region == 'IN'", "rate": 0.08 },
+        { "condition": "region == 'US'", "rate": 0.07 }
+      ]
+    }
